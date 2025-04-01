@@ -1,0 +1,14 @@
+CREATE TABLE products (
+    id VARCHAR2(50) PRIMARY KEY,
+    name VARCHAR2(255) NOT NULL,
+    description CLOB NOT NULL,
+    price NUMBER(10,2) NOT NULL,
+    stock NUMBER(10) NOT NULL,
+    images CLOB NOT NULL, -- Storing JSON or comma-separated URLs
+    category VARCHAR2(100) NOT NULL,
+    seller_id VARCHAR2(50) NOT NULL,
+    seller_name VARCHAR2(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP,
+    CONSTRAINT fk_products_seller FOREIGN KEY (seller_id) REFERENCES users(id)
+);

@@ -1,0 +1,75 @@
+import { OrderSchema, OrderStatus } from '../schema/order';
+import { executeQuery } from '../db/oracle'; // Assume this is a function to execute Oracle SQL queries
+
+/**
+ * Get all orders for a customer
+ * @param customerId Customer ID
+ * @returns Promise resolving to an array of orders
+ */
+export async function getOrdersByCustomer(customerId: string): Promise<OrderSchema[]> {
+  const query = `SELECT * FROM orders WHERE customer_id = :customerId`;
+  return executeQuery(query, { customerId });
+}
+
+/**
+ * Get all orders for a seller
+ * @param sellerId Seller ID
+ * @returns Promise resolving to an array of orders
+ */
+export async function getOrdersBySeller(sellerId: string): Promise<OrderSchema[]> {
+  const query = `SELECT * FROM orders WHERE seller_id = :sellerId`;
+  return executeQuery(query, { sellerId });
+}
+
+/**
+ * Get a single order by ID
+ * @param id Order ID
+ * @returns Promise resolving to an order or null if not found
+ */
+export async function getOrderById(id: string): Promise<OrderSchema | null> {
+  const query = `SELECT * FROM orders WHERE id = :id`;
+  const results = await executeQuery(query, { id });
+  return results.length > 0 ? results[0] : null;
+}
+
+/**
+ * Create a new order
+ * @param orderData Order data
+ * @returns Promise resolving to the created order
+ */
+export async function createOrder(
+  orderData: Omit<OrderSchema, 'id' | 'createdAt' | 'status'> & { status?: OrderStatus }
+): Promise<OrderSchema> {
+  const query = `
+    INSERT INTO orders (id, customer_id, seller_id, amount, created_at, status)
+    VALUES (:id, :customerId, :sellerId, :amount, :createdAt, :status)
+    RETURNING * INTO :newOrder
+  `;
+  
+  const newOrder = {
+    id: `order-${Date.now()}`,
+    createdAt: new Date().toISOString(),
+    status: orderData.status || 'pending',
+    ...orderData,
+  };
+  
+  await executeQuery(query, newOrder);
+  return newOrder;
+}
+
+/**
+ * Update an order's status
+ * @param id Order ID
+ * @param status New order status
+ * @returns Promise resolving to the updated order
+ */
+export async function updateOrderStatus(
+  id: string,
+  status: OrderStatus
+): Promise<OrderSchema | null> {
+  const query = `
+    UPDATE orders SET status = :status WHERE id = :id RETURNING * INTO :updatedOrder
+  `;
+  const updatedOrder = await executeQuery(query, { id, status });
+  return updatedOrder.length > 0 ? updatedOrder[0] : null;
+}

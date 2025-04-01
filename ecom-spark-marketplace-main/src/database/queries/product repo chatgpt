@@ -1,0 +1,111 @@
+import { ProductSchema } from '../schema/product';
+import { executeQuery } from '../db/oracle'; // Assume this is a function to execute Oracle SQL queries
+
+/**
+ * Get all products with optional filtering
+ * @param filters Optional filters to apply to the query
+ * @returns Promise resolving to an array of products
+ */
+export async function getProducts(filters?: {
+  category?: string;
+  sellerId?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  inStock?: boolean;
+}): Promise<ProductSchema[]> {
+  let query = `SELECT * FROM products WHERE 1=1`;
+  const params: Record<string, any> = {};
+
+  if (filters?.category) {
+    query += ` AND category = :category`;
+    params.category = filters.category;
+  }
+  if (filters?.sellerId) {
+    query += ` AND seller_id = :sellerId`;
+    params.sellerId = filters.sellerId;
+  }
+  if (filters?.minPrice !== undefined) {
+    query += ` AND price >= :minPrice`;
+    params.minPrice = filters.minPrice;
+  }
+  if (filters?.maxPrice !== undefined) {
+    query += ` AND price <= :maxPrice`;
+    params.maxPrice = filters.maxPrice;
+  }
+  if (filters?.inStock !== undefined) {
+    query += ` AND in_stock = :inStock`;
+    params.inStock = filters.inStock ? 1 : 0;
+  }
+
+  return executeQuery(query, params);
+}
+
+/**
+ * Get a single product by ID
+ * @param id Product ID
+ * @returns Promise resolving to a product or null if not found
+ */
+export async function getProductById(id: string): Promise<ProductSchema | null> {
+  const query = `SELECT * FROM products WHERE id = :id`;
+  const results = await executeQuery(query, { id });
+  return results.length > 0 ? results[0] : null;
+}
+
+/**
+ * Create a new product
+ * @param product Product data
+ * @returns Promise resolving to the created product
+ */
+export async function createProduct(product: Omit<ProductSchema, 'id' | 'createdAt'>): Promise<ProductSchema> {
+  const query = `
+    INSERT INTO products (id, name, category, price, seller_id, created_at, in_stock)
+    VALUES (:id, :name, :category, :price, :sellerId, :createdAt, :inStock)
+    RETURNING * INTO :newProduct
+  `;
+
+  const newProduct = {
+    id: `product-${Date.now()}`,
+    createdAt: new Date().toISOString(),
+    inStock: product.inStock ? 1 : 0,
+    ...product,
+  };
+
+  await executeQuery(query, newProduct);
+  return newProduct;
+}
+
+/**
+ * Update an existing product
+ * @param id Product ID
+ * @param data Product data to update
+ * @returns Promise resolving to the updated product
+ */
+export async function updateProduct(
+  id: string, 
+  data: Partial<Omit<ProductSchema, 'id' | 'createdAt'>>
+): Promise<ProductSchema | null> {
+  let query = `UPDATE products SET`;
+  const params: Record<string, any> = { id };
+
+  Object.entries(data).forEach(([key, value], index, array) => {
+    query += ` ${key} = :${key}`;
+    params[key] = value;
+    if (index < array.length - 1) query += ',';
+  });
+
+  query += ` WHERE id = :id RETURNING * INTO :updatedProduct`;
+
+  const updatedProduct = await executeQuery(query, params);
+  return updatedProduct.length > 0 ? updatedProduct[0] : null;
+}
+
+/**
+ * Delete a product
+ * @param id Product ID
+ * @returns Promise resolving to a boolean indicating success
+ */
+export async function deleteProduct(id: string): Promise<boolean> {
+  const query = `DELETE FROM products WHERE id = :id`;
+  const result = await executeQuery(query, { id });
+  return result.affectedRows > 0;
+}

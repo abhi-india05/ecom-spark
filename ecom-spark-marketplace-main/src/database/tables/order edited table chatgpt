@@ -1,0 +1,22 @@
+CREATE TABLE orders (
+    id VARCHAR2(50) PRIMARY KEY,
+    customer_id VARCHAR2(50) NOT NULL,
+    status VARCHAR2(20) NOT NULL,
+    total NUMBER(10,2) NOT NULL,
+    shipping_address VARCHAR2(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP,
+    CONSTRAINT fk_orders_customer FOREIGN KEY (customer_id) REFERENCES users(id)
+);
+
+CREATE TABLE order_items (
+    id VARCHAR2(50) PRIMARY KEY,
+    order_id VARCHAR2(50) NOT NULL,
+    product_id VARCHAR2(50) NOT NULL,
+    product_name VARCHAR2(255) NOT NULL,
+    price NUMBER(10,2) NOT NULL,
+    quantity NUMBER(10) NOT NULL,
+    subtotal NUMBER(10,2) NOT NULL,
+    CONSTRAINT fk_order_items_order FOREIGN KEY (order_id) REFERENCES orders(id),
+    CONSTRAINT fk_order_items_product FOREIGN KEY (product_id) REFERENCES products(id)
+);
